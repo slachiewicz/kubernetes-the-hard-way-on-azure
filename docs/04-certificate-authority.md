@@ -38,11 +38,11 @@ cat > ca-csr.json <<EOF
   },
   "names": [
     {
-      "C": "US",
-      "L": "Portland",
+      "C": "IT",
+      "L": "Milan",
       "O": "Kubernetes",
-      "OU": "CA",
-      "ST": "Oregon"
+      "OU": "MI",
+      "ST": "Italy"
     }
   ]
 }
@@ -80,11 +80,11 @@ cat > admin-csr.json <<EOF
   },
   "names": [
     {
-      "C": "US",
-      "L": "Portland",
+      "C": "IT",
+      "L": "Milan",
       "O": "system:masters",
       "OU": "Kubernetes The Hard Way",
-      "ST": "Oregon"
+      "ST": "Italy"
     }
   ]
 }
@@ -116,7 +116,7 @@ Kubernetes uses a [special-purpose authorization mode](https://kubernetes.io/doc
 Generate a certificate and private key for each Kubernetes worker node:
 
 ```shell
-for instance in worker-0 worker-1 worker-2; do
+for instance in worker-0 worker-1; do
 cat > ${instance}-csr.json <<EOF
 {
   "CN": "system:node:${instance}",
@@ -126,11 +126,11 @@ cat > ${instance}-csr.json <<EOF
   },
   "names": [
     {
-      "C": "US",
-      "L": "Portland",
+      "C": "IT",
+      "L": "Milan",
       "O": "system:nodes",
       "OU": "Kubernetes The Hard Way",
-      "ST": "Oregon"
+      "ST": "Italy"
     }
   ]
 }
@@ -158,8 +158,6 @@ worker-0-key.pem
 worker-0.pem
 worker-1-key.pem
 worker-1.pem
-worker-2-key.pem
-worker-2.pem
 ```
 
 ### The Controller Manager Client Certificate
@@ -178,11 +176,11 @@ cat > kube-controller-manager-csr.json <<EOF
   },
   "names": [
     {
-      "C": "US",
-      "L": "Portland",
+      "C": "IT",
+      "L": "Milan",
       "O": "system:kube-controller-manager",
       "OU": "Kubernetes The Hard Way",
-      "ST": "Oregon"
+      "ST": "Italy"
     }
   ]
 }
@@ -219,11 +217,11 @@ cat > kube-proxy-csr.json <<EOF
   },
   "names": [
     {
-      "C": "US",
-      "L": "Portland",
+      "C": "IT",
+      "L": "Milano",
       "O": "system:node-proxier",
       "OU": "Kubernetes The Hard Way",
-      "ST": "Oregon"
+      "ST": "Italy"
     }
   ]
 }
@@ -264,11 +262,11 @@ cat > kube-scheduler-csr.json <<EOF
   },
   "names": [
     {
-      "C": "US",
-      "L": "Portland",
+      "C": "IT",
+      "L": "Milan",
       "O": "system:kube-scheduler",
       "OU": "Kubernetes The Hard Way",
-      "ST": "Oregon"
+      "ST": "Italy"
     }
   ]
 }
@@ -314,11 +312,11 @@ cat > kubernetes-csr.json <<EOF
   },
   "names": [
     {
-      "C": "US",
-      "L": "Portland",
+      "C": "IT",
+      "L": "Milan",
       "O": "Kubernetes",
       "OU": "Kubernetes The Hard Way",
-      "ST": "Oregon"
+      "ST": "Italy"
     }
   ]
 }
@@ -332,7 +330,7 @@ cfssl gencert \
   -ca=ca.pem \
   -ca-key=ca-key.pem \
   -config=ca-config.json \
-  -hostname=10.32.0.1,10.240.0.10,10.240.0.11,10.240.0.12,${KUBERNETES_PUBLIC_ADDRESS},127.0.0.1,kubernetes.default \
+  -hostname=10.32.0.1,10.240.0.10,10.240.0.11,${KUBERNETES_PUBLIC_ADDRESS},127.0.0.1,kubernetes.default \
   -profile=kubernetes \
   kubernetes-csr.json | cfssljson -bare kubernetes
 ```
@@ -346,7 +344,7 @@ kubernetes.pem
 
 ## The Service Account Key Pair
 
-The Kubernetes Controller Manager leverages a key pair to generate and sign service account tokens as describe in the [managing service accounts](https://kubernetes.io/docs/admin/service-accounts-admin/) documentation.
+The Kubernetes Controller Manager leverages a key pair to generate and sign service account tokens as described in the [managing service accounts](https://kubernetes.io/docs/admin/service-accounts-admin/) documentation.
 
 Generate the `service-account` certificate and private key:
 
@@ -362,11 +360,11 @@ cat > service-account-csr.json <<EOF
   },
   "names": [
     {
-      "C": "US",
-      "L": "Portland",
+      "C": "IT",
+      "L": "Milan",
       "O": "Kubernetes",
       "OU": "Kubernetes The Hard Way",
-      "ST": "Oregon"
+      "ST": "Italy"
     }
   ]
 }
@@ -390,28 +388,28 @@ service-account.pem
 ```
 
 ## Distribute the Client and Server Certificates
-##instead of whoami use the username used to create the linux VM
+## If you're following the previous steps the username used to create the linux VM would be kuberoot 
 
 Copy the appropriate certificates and private keys to each worker instance:
 
 ```shell
-for instance in worker-0 worker-1 worker-2; do
+for instance in worker-0 worker-1; do
   PUBLIC_IP_ADDRESS=$(az network public-ip show -g kubernetes \
     -n ${instance}-pip --query "ipAddress" -otsv)
 
-  scp -o StrictHostKeyChecking=no ca.pem ${instance}-key.pem ${instance}.pem $(whoami)@${PUBLIC_IP_ADDRESS}:~/
+  scp -o StrictHostKeyChecking=no ca.pem ${instance}-key.pem ${instance}.pem kuberoot@${PUBLIC_IP_ADDRESS}:~/
 done
 ```
 
 Copy the appropriate certificates and private keys to each controller instance:
 
 ```shell
-for instance in controller-0 controller-1 controller-2; do
+for instance in controller-0 controller-1; do
   PUBLIC_IP_ADDRESS=$(az network public-ip show -g kubernetes \
     -n ${instance}-pip --query "ipAddress" -otsv)
 
   scp -o StrictHostKeyChecking=no ca.pem ca-key.pem kubernetes-key.pem kubernetes.pem \
-    service-account-key.pem service-account.pem $(whoami)@${PUBLIC_IP_ADDRESS}:~/
+    service-account-key.pem service-account.pem kuberoot@${PUBLIC_IP_ADDRESS}:~/
 done
 ```
 

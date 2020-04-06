@@ -1,13 +1,15 @@
 # Kubernetes The Hard Way on Azure
 
 This tutorial is designed for [Microsoft Azure](https://azure.microsoft.com) and [Azure CLI 2.0](https://github.com/azure/azure-cli).
-It is a fork of the great [Kubernetes The Hard Way](https://github.com/kelseyhightower/kubernetes-the-hard-way) from [Kesley Hightower](https://twitter.com/kelseyhightower) that describes same steps using [Google Cloud Platform](https://cloud.google.com).
+It is a fork of the great [Kubernetes The Hard Way](https://github.com/kelseyhightower/kubernetes-the-hard-way) from [Kelsey Hightower](https://twitter.com/kelseyhightower) that describes same steps using [Google Cloud Platform](https://cloud.google.com).
 
-Azure part is based on the superb translation done by [Jonathan Carter - @lostintangent](https://twitter.com/LostInTangent) in this [fork](https://github.com/lostintangent/kubernetes-the-hard-way). He is the real man behind the Azure "translation".
+Azure part is based on the superb translation done by [Jonathan Carter - @lostintangent](https://twitter.com/LostInTangent) in this [fork](https://github.com/lostintangent/kubernetes-the-hard-way). He is the one who is really behind the Azure "translation".
 
 This tutorial walks you through setting up Kubernetes the hard way. This guide is not for people looking for a fully automated command to bring up a Kubernetes cluster. If that's you then check out [Azure Container Services](https://azure.microsoft.com/en-us/services/container-service), or the [Getting Started Guides](http://kubernetes.io/docs/getting-started-guides).
 
 Kubernetes The Hard Way is optimized for learning, which means taking the long route to ensure you understand each task required to bootstrap a Kubernetes cluster.
+
+Kubernetes Dashboard configuration has been added at the end of the tutorial, to let you play with the cluster through a UI.
 
 > The results of this tutorial should not be viewed as production ready, and may receive limited support from the community, but don't let that stop you from learning!
 
@@ -19,12 +21,12 @@ The target audience for this tutorial is someone planning to support a productio
 
 Kubernetes The Hard Way guides you through bootstrapping a highly available Kubernetes cluster with end-to-end encryption between components and RBAC authentication.
 
-* [Kubernetes](https://github.com/kubernetes/kubernetes) 1.13.0
-* [containerd Container Runtime](https://github.com/containerd/containerd) 1.2.0
-* [gVisor](https://github.com/google/gvisor) 50c283b9f56bb7200938d9e207355f05f79f0d17
-* [CNI Container Networking](https://github.com/containernetworking/cni) 0.6.0
-* [etcd](https://github.com/coreos/etcd) v3.3.10
-* [CoreDNS](https://github.com/coredns/coredns) v1.3.0
+* [Kubernetes](https://github.com/kubernetes/kubernetes) 1.17.3
+* [containerd Container Runtime](https://github.com/containerd/containerd) 1.3.3
+* [gVisor](https://github.com/google/gvisor) latest
+* [CNI Container Networking](https://github.com/containernetworking/cni) 0.7.1
+* [etcd](https://github.com/coreos/etcd) v3.3.18
+* [CoreDNS](https://github.com/coredns/coredns) v1.6.7
 
 ## Labs
 
@@ -43,4 +45,5 @@ This tutorial assumes you have access to the [Microsoft Azure](https://azure.mic
 * [Provisioning Pod Network Routes](docs/11-pod-network-routes.md)
 * [Deploying the DNS Cluster Add-on](docs/12-dns-addon.md)
 * [Smoke Test](docs/13-smoke-test.md)
-* [Cleaning Up](docs/14-cleanup.md)
+* [Dashboard](docs/14-dashboard.md)
+* [Cleaning Up](docs/15-cleanup.md)

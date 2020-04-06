@@ -1,6 +1,6 @@
 # Provisioning Compute Resources
 
-Kubernetes requires a set of machines to host the Kubernetes control plane and the worker nodes where containers are ultimately run. In this lab you will provision the compute resources required for running a secure and highly available Kubernetes cluster within a single [Resource Group](https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-overview#resource-groups) in a single [region](https://azure.microsoft.com/en-us/regions/)
+Kubernetes requires a set of machines to host the Kubernetes control plane and the worker nodes where containers are ultimately run. In this lab you will provision the compute resources required for running a secure and highly available Kubernetes cluster within a single [Resource Group](https://docs.microsoft.com/azure/azure-resource-manager/resource-group-overview#resource-groups) in a single [region](https://azure.microsoft.com/global-infrastructure/regions/)
 Create a default Resource Group in a region
 > Ensure a resource group has been created as described in the [Prerequisites](01-prerequisites.md#create-a-deafult-resource-group-in-a-region) lab.
 
@@ -12,7 +12,7 @@ The Kubernetes [networking model](https://kubernetes.io/docs/concepts/cluster-ad
 
 ### Virtual Network
 
-In this section a dedicated [Virtual Network](https://docs.microsoft.com/en-us/azure/virtual-network/virtual-networks-overview) (VNet) network will be setup to host the Kubernetes cluster.
+In this section a dedicated [Virtual Network](https://docs.microsoft.com/azure/virtual-network/virtual-networks-overview) (VNet) network will be setup to host the Kubernetes cluster.
 
 Create the `kubernetes-vnet` custom VNet network with a subnet `kubernetes` provisioned with an IP address range large enough to assign a private IP address to each node in the Kubernetes cluster.:
 
@@ -27,7 +27,7 @@ az network vnet create -g kubernetes \
 
 ### Firewall Rules
 
-Create a firewall ([Network Security Group](https://docs.microsoft.com/en-us/azure/virtual-network/virtual-networks-nsg)) and assign it to the subnet:
+Create a firewall ([Network Security Group](https://docs.microsoft.com/azure/virtual-network/virtual-network-vnet-plan-design-arm#security)) and assign it to the subnet:
 
 ```shell
 az network nsg create -g kubernetes -n kubernetes-nsg
@@ -70,7 +70,7 @@ az network nsg rule create -g kubernetes \
   --priority 1001
 ```
 
-> An [external load balancer](https://docs.microsoft.com/en-us/azure/load-balancer/load-balancer-overview) will be used to expose the Kubernetes API Servers to remote clients.
+> An [external load balancer](https://docs.microsoft.com/azure/load-balancer/load-balancer-overview) will be used to expose the Kubernetes API Servers to remote clients.
 
 List the firewall rules in the `kubernetes-vnet` VNet network:
 
@@ -103,7 +103,7 @@ az network lb create -g kubernetes \
 Verify the `kubernetes-pip` static IP address was created correctly in the `kubernetes` Resource Group and chosen region:
 
 ```shell
-az network public-ip  list --query="[?name=='kubernetes-pip'].{ResourceGroup:resourceGroup, \
+az network public-ip list --query="[?name=='kubernetes-pip'].{ResourceGroup:resourceGroup, \
   Region:location,Allocation:publicIpAllocationMethod,IP:ipAddress}" -o table
 ```
 
@@ -112,7 +112,7 @@ az network public-ip  list --query="[?name=='kubernetes-pip'].{ResourceGroup:res
 ```shell
 ResourceGroup    Region    Allocation    IP
 ---------------  --------  ------------  --------------
-kubernetes       westus2   Static        XX.XXX.XXX.XXX
+kubernetes       eastus2   Static        XX.XXX.XXX.XXX
 ```
 
 ## Virtual Machines
@@ -122,23 +122,23 @@ The compute instances in this lab will be provisioned using [Ubuntu Server](http
 To select latest stable Ubuntu Server release run following command and replace UBUNTULTS variable below with latest row in the table.
 
 ```shell
-az vm image list --location westus2 --publisher Canonical --offer UbuntuServer --sku 18.04-LTS --all -o table
+az vm image list --location eastus2 --publisher Canonical --offer UbuntuServer --sku 18.04-LTS --all -o table
 ```
 
 ```shell
-UBUNTULTS="Canonical:UbuntuServer:18.04-LTS:18.04.201812060"
+UBUNTULTS="Canonical:UbuntuServer:18.04-LTS:18.04.202002180"
 ```
 
 ### Kubernetes Controllers
 
-Create three compute instances which will host the Kubernetes control plane in `controller-as` [Availability Set](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/regions-and-availability#availability-sets):
+Create two compute instances which will host the Kubernetes control plane in `controller-as` [Availability Set](https://docs.microsoft.com/azure/virtual-machines/linux/tutorial-availability-sets#availability-set-overview):
 
 ```shell
 az vm availability-set create -g kubernetes -n controller-as
 ```
 
 ```shell
-for i in 0 1 2; do
+for i in 0 1; do
     echo "[Controller ${i}] Creating public IP..."
     az network public-ip create -n controller-${i}-pip -g kubernetes > /dev/null
 
@@ -157,11 +157,11 @@ for i in 0 1 2; do
     az vm create -g kubernetes \
         -n controller-${i} \
         --image ${UBUNTULTS} \
-        --generate-ssh-keys \
         --nics controller-${i}-nic \
         --availability-set controller-as \
         --nsg '' \
-        --admin-username 'kuberoot' > /dev/null
+        --admin-username 'kuberoot' \
+        --generate-ssh-keys > /dev/null
 done
 ```
 
@@ -171,14 +171,14 @@ Each worker instance requires a pod subnet allocation from the Kubernetes cluste
 
 > The Kubernetes cluster CIDR range is defined by the Controller Manager's `--cluster-cidr` flag. In this tutorial the cluster CIDR range will be set to `10.240.0.0/16`, which supports 254 subnets.
 
-Create three compute instances which will host the Kubernetes worker nodes in `worker-as` Availability Set:
+Create two compute instances which will host the Kubernetes worker nodes in `worker-as` Availability Set:
 
 ```shell
 az vm availability-set create -g kubernetes -n worker-as
 ```
 
 ```shell
-for i in 0 1 2; do
+for i in 0 1; do
     echo "[Worker ${i}] Creating public IP..."
     az network public-ip create -n worker-${i}-pip -g kubernetes > /dev/null
 
@@ -199,6 +199,7 @@ for i in 0 1 2; do
         --tags pod-cidr=10.200.${i}.0/24 \
         --availability-set worker-as \
         --nsg '' \
+        --generate-ssh-keys \
         --admin-username 'kuberoot' > /dev/null
 done
 ```
@@ -216,12 +217,10 @@ az vm list -d -g kubernetes -o table
 ```shell
 Name          ResourceGroup    PowerState    PublicIps       Location
 ------------  ---------------  ------------  --------------  ----------
-controller-0  kubernetes       VM running    XX.XXX.XXX.XXX  westus2
-controller-1  kubernetes       VM running    XX.XXX.XXX.XXX  westus2
-controller-2  kubernetes       VM running    XX.XXX.XXX.XXX  westus2
-worker-0      kubernetes       VM running    XX.XXX.XXX.XXX  westus2
-worker-1      kubernetes       VM running    XX.XXX.XXX.XXX  westus2
-worker-2      kubernetes       VM running    XX.XXX.XXX.XXX  westus2
+controller-0  kubernetes       VM running    XX.XXX.XXX.XXX  eastus2
+controller-1  kubernetes       VM running    XX.XXX.XXX.XXX  eastus2
+worker-0      kubernetes       VM running    XX.XXX.XXX.XXX  eastus2
+worker-1      kubernetes       VM running    XX.XXX.XXX.XXX  eastus2
 ```
 
 Next: [Provisioning a CA and Generating TLS Certificates](04-certificate-authority.md)

@@ -20,7 +20,7 @@ CONTROLLER="controller-0"
 PUBLIC_IP_ADDRESS=$(az network public-ip show -g kubernetes \
   -n ${CONTROLLER}-pip --query "ipAddress" -otsv)
 
-ssh $(whoami)@${PUBLIC_IP_ADDRESS} \
+ssh kuberoot@${PUBLIC_IP_ADDRESS} \
   "ETCDCTL_API=3 etcdctl get /registry/secrets/default/kubernetes-the-hard-way | hexdump -C"
 ```
 
@@ -67,8 +67,8 @@ kubectl get pods -l run=nginx
 > output
 
 ```shell
-NAME                     READY     STATUS    RESTARTS   AGE
-nginx                    1/1       Running   0          15s
+NAME    READY   STATUS    RESTARTS   AGE
+nginx   1/1     Running   0          19s
 ```
 
 ### Port Forwarding
@@ -104,13 +104,13 @@ curl --head http://127.0.0.1:8080
 
 ```shell
 HTTP/1.1 200 OK
-Server: nginx/1.15.7
-Date: Sun, 23 Dec 2018 17:09:02 GMT
+Server: nginx/1.17.8
+Date: Sun, 23 Feb 2020 12:15:34 GMT
 Content-Type: text/html
 Content-Length: 612
-Last-Modified: Tue, 27 Nov 2018 12:31:56 GMT
+Last-Modified: Tue, 21 Jan 2020 13:36:08 GMT
 Connection: keep-alive
-ETag: "5bfd393c-264"
+ETag: "5e26fe48-264"
 Accept-Ranges: bytes
 ```
 
@@ -136,7 +136,7 @@ kubectl logs $POD_NAME
 > output
 
 ```shell
-127.0.0.1 - - [23/Dec/2018:17:09:02 +0000] "HEAD / HTTP/1.1" 200 0 "-" "curl/7.54.0" "-"
+127.0.0.1 - - [23/Feb/2020:12:15:34 +0000] "HEAD / HTTP/1.1" 200 0 "-" "curl/7.68.0" "-"
 ```
 
 ### Exec
@@ -152,20 +152,20 @@ kubectl exec -ti $POD_NAME -- nginx -v
 > output
 
 ```shell
-nginx version: nginx/1.15.7
+nginx version: nginx/1.17.8
 ```
 
 ## Services
 
 In this section you will verify the ability to expose applications using a [Service](https://kubernetes.io/docs/concepts/services-networking/service/).
 
-Expose the `nginx` deployment using a [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport) service:
+Expose the `nginx` deployment using a [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#nodeport) service:
 
 ```shell
 kubectl expose pod nginx --port 80 --type NodePort
 ```
 
-> The LoadBalancer service type can not be used because your cluster is not configured with [cloud provider integration](https://kubernetes.io/docs/getting-started-guides/scratch/#cloud-provider). Setting up cloud provider integration is out of scope for this tutorial.
+> The LoadBalancer service type can not be used because your cluster is not configured with [cloud provider integration](https://kubernetes.io/docs/concepts/cluster-administration/cloud-providers/#azure). Setting up cloud provider integration is out of scope for this tutorial.
 
 Retrieve the node port assigned to the `nginx` service:
 
@@ -200,21 +200,21 @@ EXTERNAL_IP=$(az network public-ip show -g kubernetes \
 Make an HTTP request using the external IP address and the `nginx` node port:
 
 ```shell
-curl -I http://${EXTERNAL_IP}:${NODE_PORT}
+curl -I http://$EXTERNAL_IP:$NODE_PORT
 ```
 
 > output
 
 ```shell
 HTTP/1.1 200 OK
-Server: nginx/1.15.7
-Date: Sun, 23 Dec 2018 17:11:08 GMT
+Server: nginx/1.17.8
+Date: Sun, 23 Feb 2020 12:17:18 GMT
 Content-Type: text/html
 Content-Length: 612
-Last-Modified: Tue, 27 Nov 2018 12:31:56 GMT
+Last-Modified: Tue, 21 Jan 2020 13:36:08 GMT
 Connection: keep-alive
-ETag: "5bfd393c-264"
+ETag: "5e26fe48-264"
 Accept-Ranges: bytes
 ```
 
-Next: [Cleaning Up](14-cleanup.md)
+Next: [Dashboard Configuration](14-dashboard.md)

@@ -1,23 +1,11 @@
 # Bootstrapping the Kubernetes Worker Nodes
 
-In this lab you will bootstrap three Kubernetes worker nodes. The following components will be installed on each node: [runc](https://github.com/opencontainers/runc), [container networking plugins](https://github.com/containernetworking/cni), [cri-containerd](https://github.com/kubernetes-incubator/cri-containerd), [kubelet](https://kubernetes.io/docs/admin/kubelet), and [kube-proxy](https://kubernetes.io/docs/concepts/cluster-administration/proxies).
+In this lab you will bootstrap two Kubernetes worker nodes. The following components will be installed on each node: [runc](https://github.com/opencontainers/runc), [container networking plugins](https://github.com/containernetworking/cni), [cri-containerd](https://github.com/containerd/cri), [kubelet](https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/), and [kube-proxy](https://kubernetes.io/docs/concepts/cluster-administration/proxies/).
 
 ## Prerequisites
 
-The commands in this lab must be run on each worker instance: `worker-0`, `worker-1`, and `worker-2`. 
-Azure Metadata Instace service cannot be used to set custom property. We have used *tags* on each worker VM to defined POD-CIDR used later.
-
-Retrieve the POD CIDR range for the current compute instance and keep it for later.
-
-```shell
-az vm show -g kubernetes --name worker-0 --query "tags" -o tsv
-```
-
-> output
-
-```shell
-10.200.0.0/24
-```
+The commands in this lab must be run on each worker instance: `worker-0` and `worker-1`.
+Azure Instance Metadata Service cannot be used to set custom property. We have used *tags* on each worker VM to defined POD-CIDR used later.
 
 Login to each worker instance using the `az` command to find its public IP and ssh to it. Example:
 
@@ -26,7 +14,7 @@ WORKER="worker-0"
 PUBLIC_IP_ADDRESS=$(az network public-ip show -g kubernetes \
   -n ${WORKER}-pip --query "ipAddress" -otsv)
 
-ssh $(whoami)@${PUBLIC_IP_ADDRESS}
+ssh kuberoot@${PUBLIC_IP_ADDRESS}
 ```
 
 ### Running commands in parallel with tmux
@@ -50,14 +38,14 @@ Install the OS dependencies:
 
 ```shell
 wget -q --show-progress --https-only --timestamping \
-  https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.13.0/crictl-v1.13.0-linux-amd64.tar.gz \
-  https://storage.googleapis.com/kubernetes-the-hard-way/runsc-50c283b9f56bb7200938d9e207355f05f79f0d17 \
-  https://github.com/opencontainers/runc/releases/download/v1.0.0-rc5/runc.amd64 \
-  https://github.com/containernetworking/plugins/releases/download/v0.6.0/cni-plugins-amd64-v0.6.0.tgz \
-  https://github.com/containerd/containerd/releases/download/v1.2.0/containerd-1.2.0.linux-amd64.tar.gz \
-  https://storage.googleapis.com/kubernetes-release/release/v1.13.0/bin/linux/amd64/kubectl \
-  https://storage.googleapis.com/kubernetes-release/release/v1.13.0/bin/linux/amd64/kube-proxy \
-  https://storage.googleapis.com/kubernetes-release/release/v1.13.0/bin/linux/amd64/kubelet
+  https://github.com/kubernetes-sigs/cri-tools/releases/download/v1.17.0/crictl-v1.17.0-linux-amd64.tar.gz \
+  https://storage.googleapis.com/gvisor/releases/nightly/latest/runsc \
+  https://github.com/opencontainers/runc/releases/download/v1.0.0-rc10/runc.amd64\
+  https://github.com/containernetworking/plugins/releases/download/v0.8.5/cni-plugins-linux-amd64-v0.8.5.tgz \
+  https://github.com/containerd/containerd/releases/download/v1.3.2/containerd-1.3.2.linux-amd64.tar.gz \
+  https://storage.googleapis.com/kubernetes-release/release/v1.17.3/bin/linux/amd64/kubectl \
+  https://storage.googleapis.com/kubernetes-release/release/v1.17.3/bin/linux/amd64/kube-proxy \
+  https://storage.googleapis.com/kubernetes-release/release/v1.17.3/bin/linux/amd64/kubelet
 ```
 
 Create the installation directories:
@@ -76,27 +64,26 @@ Install the worker binaries:
 
 ```shell
 {
-  sudo mv runsc-50c283b9f56bb7200938d9e207355f05f79f0d17 runsc
   sudo mv runc.amd64 runc
   chmod +x kubectl kube-proxy kubelet runc runsc
   sudo mv kubectl kube-proxy kubelet runc runsc /usr/local/bin/
-  sudo tar -xvf crictl-v1.13.0-linux-amd64.tar.gz -C /usr/local/bin/
-  sudo tar -xvf cni-plugins-amd64-v0.6.0.tgz -C /opt/cni/bin/
-  sudo tar -xvf containerd-1.2.0.linux-amd64.tar.gz -C /
+  sudo tar -xvf crictl-v1.17.0-linux-amd64.tar.gz -C /usr/local/bin/
+  sudo tar -xvf cni-plugins-linux-amd64-v0.8.5.tgz -C /opt/cni/bin/
+  sudo tar -xvf containerd-1.3.2.linux-amd64.tar.gz -C /
 }
 ```
 
 ### Configure CNI Networking
 
 Create the `bridge` network configuration file replacing POD_CIDR with address retrieved initially from Azure VM tags:
-(Note: The Azure Metadata Instance Service is used to retrieve the POD_CIDR tag for each worker.
-https://github.com/MicrosoftDocs/azure-docs/blob/master/articles/virtual-machines/windows/instance-metadata-service.md)
+
+> Note: the [Azure Instance Metadata Service](https://docs.microsoft.com/azure/virtual-machines/windows/instance-metadata-service) is used to retrieve the POD_CIDR tag for each worker.
 
 ```shell
 POD_CIDR="$(echo $(curl --silent -H Metadata:true "http://169.254.169.254/metadata/instance/compute/tags?api-version=2017-08-01&format=text") | cut -d : -f2)"
 cat <<EOF | sudo tee /etc/cni/net.d/10-bridge.conf
 {
-    "cniVersion": "0.3.1",
+    "cniVersion": "0.3.0",
     "name": "bridge",
     "type": "bridge",
     "bridge": "cnio0",
@@ -118,7 +105,8 @@ Create the `loopback` network configuration file:
 ```shell
 cat <<EOF | sudo tee /etc/cni/net.d/99-loopback.conf
 {
-    "cniVersion": "0.3.1",
+    "cniVersion": "0.3.0",
+    "name": "lo",
     "type": "loopback"
 }
 EOF
@@ -166,14 +154,17 @@ After=network.target
 [Service]
 ExecStartPre=/sbin/modprobe overlay
 ExecStart=/bin/containerd
-Restart=always
-RestartSec=5
+
 Delegate=yes
 KillMode=process
-OOMScoreAdjust=-999
-LimitNOFILE=1048576
+# Having non-zero Limit*s causes performance problems due to accounting overhead
+# in the kernel. We recommend using cgroups to do container-local accounting.
 LimitNPROC=infinity
 LimitCORE=infinity
+LimitNOFILE=infinity
+# Comment TasksMax if your systemd version does not supports it.
+# Only systemd 226 and above support this version.
+TasksMax=infinity
 
 [Install]
 WantedBy=multi-user.target
@@ -294,7 +285,7 @@ EOF
 }
 ```
 
-> Remember to run the above commands on each worker node: `worker-0`, `worker-1`, and `worker-2`.
+> Remember to run the above commands on each worker node: `worker-0` and `worker-1`.
 
 ## Verification
 
@@ -305,7 +296,7 @@ CONTROLLER="controller-0"
 PUBLIC_IP_ADDRESS=$(az network public-ip show -g kubernetes \
   -n ${CONTROLLER}-pip --query "ipAddress" -otsv)
 
-ssh $(whoami)@${PUBLIC_IP_ADDRESS}
+ssh kuberoot@${PUBLIC_IP_ADDRESS}
 ```
 
 List the registered Kubernetes nodes:
@@ -317,10 +308,9 @@ kubectl get nodes
 > output
 
 ```shell
-NAME       STATUS    AGE       VERSION
-worker-0   Ready    <none>   19s   v1.13.0
-worker-1   Ready    <none>   17s   v1.13.0
-worker-2   Ready    <none>   16s   v1.13.0
+NAME       STATUS   ROLES    AGE   VERSION
+worker-0   Ready    <none>   17s   v1.17.3
+worker-1   Ready    <none>   13s   v1.17.3
 ```
 
 Next: [Configuring kubectl for Remote Access](10-configuring-kubectl.md)
